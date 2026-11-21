@@ -1,0 +1,86 @@
+name: CloudNow Video Diagnostics
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install SwiftFormat 0.62.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/swiftformat"
+          mkdir -p "$RUNNER_TEMP/pinned-tools"
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.artifactbundle.zip
+          unzip -qo "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          SF_BIN=$(find "$RUNNER_TEMP/swiftformat" -type f -name swiftformat -perm -111 | head -1)
+          install -m 0755 "$SF_BIN" "$RUNNER_TEMP/pinned-tools/swiftformat"
+          test "$("$RUNNER_TEMP/pinned-tools/swiftformat" --version)" = "0.62.1"
+
+      - name: Install SwiftLint 0.65.0
+        run: |
+          mkdir -p "$RUNNER_TEMP/swiftlint"
+          mkdir -p "$RUNNER_TEMP/pinned-tools"
+          curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
+            https://github.com/realm/SwiftLint/releases/download/0.65.0/portable_swiftlint.zip
+          unzip -qo "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          SL_BIN=$(find "$RUNNER_TEMP/swiftlint" -type f -name swiftlint -perm -111 | head -1)
+          install -m 0755 "$SL_BIN" "$RUNNER_TEMP/pinned-tools/swiftlint"
+          test "$("$RUNNER_TEMP/pinned-tools/swiftlint" version)" = "0.65.0"
+
+      - name: SwiftFormat (format check)
+        run: |
+          "$RUNNER_TEMP/pinned-tools/swiftformat" --lint --config .swiftformat --reporter github-actions-log CloudNow CloudNowTests CloudNowUITests
+
+      - name: SwiftLint (strict)
+        run: |
+          "$RUNNER_TEMP/pinned-tools/swiftlint" --strict --config .swiftlint.yml --reporter github-actions-logging CloudNow CloudNowTests CloudNowUITests
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Resolve SPM dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project CloudNow.xcodeproj \
+            -scheme CloudNow \
+            -clonedSourcePackagesDirPath .spm-packages
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project CloudNow.xcodeproj \
+            -scheme CloudNow \
+            -configuration Release \
+            -destination "generic/platform=tvOS" \
+            -archivePath "$RUNNER_TEMP/CloudNow.xcarchive" \
+            -clonedSourcePackagesDirPath .spm-packages \
+            PRODUCT_BUNDLE_IDENTIFIER=com.owenselles.CloudNowDiagnostics \
+            INFOPLIST_KEY_CFBundleDisplayName="CloudNow Diagnostics" \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS="ProviderLibrarySyncEnabled CLOUDNOW_VIDEO_DIAGNOSTICS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -r "$RUNNER_TEMP/CloudNow.xcarchive/Products/Applications/CloudNow.app" \
+            "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r CloudNow.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudNow-Diagnostics
+          path: ${{ runner.temp }}/CloudNow.ipa
+          if-no-files-found: error

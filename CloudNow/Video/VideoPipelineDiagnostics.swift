@@ -2,6 +2,8 @@ import Foundation
 import os
 
 nonisolated struct VideoPipelineSnapshot {
+    var maxDecodeGapMs: Double = 0
+    var maxEnqueueGapMs: Double = 0
     var callbackFrames: Int = 0
     var softwareConvertedFrames: Int = 0
     var enqueuedFrames: Int = 0
@@ -30,6 +32,8 @@ final nonisolated class VideoPipelineDiagnostics: @unchecked Sendable {
         var sampleCreationNanoseconds: UInt64 = 0
         var sampleCreationCount = 0
         var previousAVMetrics: AVMetrics?
+        var lastDecodeTime: UInt64?
+        var lastEnqueueTime: UInt64?
     }
 
     private struct AVMetrics {
@@ -56,6 +60,12 @@ final nonisolated class VideoPipelineDiagnostics: @unchecked Sendable {
     func beginFrame() -> VideoFrameTrace? {
         let enabled = state.withLock { state -> Bool in
             guard state.isEnabled else { return false }
+            let now = DispatchTime.now().uptimeNanoseconds
+            if let previous = state.lastDecodeTime {
+                let gapMs = Double(now - previous) / 1_000_000
+                state.snapshot.maxDecodeGapMs = max(state.snapshot.maxDecodeGapMs, gapMs)
+            }
+            state.lastDecodeTime = now
             state.snapshot.callbackFrames += 1
             return true
         }
@@ -114,6 +124,12 @@ final nonisolated class VideoPipelineDiagnostics: @unchecked Sendable {
     func recordEnqueue(_ trace: VideoFrameTrace?) {
         state.withLock { state in
             guard state.isEnabled else { return }
+            let now = DispatchTime.now().uptimeNanoseconds
+            if let previous = state.lastEnqueueTime {
+                let gapMs = Double(now - previous) / 1_000_000
+                state.snapshot.maxEnqueueGapMs = max(state.snapshot.maxEnqueueGapMs, gapMs)
+            }
+            state.lastEnqueueTime = now
             state.snapshot.enqueuedFrames += 1
         }
         guard let trace else { return }
@@ -191,7 +207,12 @@ final nonisolated class VideoPipelineDiagnostics: @unchecked Sendable {
     }
 
     func snapshot() -> VideoPipelineSnapshot {
-        state.withLock { $0.snapshot }
+        state.withLock { state in
+            let snapshot = state.snapshot
+            state.snapshot.maxDecodeGapMs = 0
+            state.snapshot.maxEnqueueGapMs = 0
+            return snapshot
+        }
     }
 
     private nonisolated static func averageMilliseconds(totalNanoseconds: UInt64, count: Int) -> Double {

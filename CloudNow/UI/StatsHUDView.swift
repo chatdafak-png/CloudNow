@@ -76,13 +76,23 @@ struct StatsHUDView: View {
                     serverLocation: snapshot.serverLocation,
                     diagnosticsEnabled: snapshot.diagnosticsEnabled,
                     rtcEventLogActive: snapshot.rtcEventLogActive,
-                    qualityRequest: snapshot.qualityRequest
+                    qualityRequest: snapshot.qualityRequest,
+                    videoDiagnostics: videoDiagnostics
                 )
             }
         }
         .allowsHitTesting(false)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(L10n.format("statistics_level", snapshot.mode.label))
+    }
+
+    private var videoDiagnostics: VideoPipelineSnapshot? {
+        #if CLOUDNOW_VIDEO_DIAGNOSTICS
+            if case let .geForceNow(controller, _, _) = source, controller.diagnosticsEnabled {
+                return controller.videoDiagnostics
+            }
+        #endif
+        return nil
     }
 
     private var resolvedSnapshot: StatsHUDSnapshot {
@@ -161,6 +171,7 @@ private struct StandardStatsPanel: View {
     let diagnosticsEnabled: Bool
     let rtcEventLogActive: Bool
     let qualityRequest: StatsHUDQualityRequest?
+    let videoDiagnostics: VideoPipelineSnapshot?
 
     var body: some View {
         StatsPanel(contentWidth: StatsHUDLayout.columnWidth) {
@@ -173,7 +184,8 @@ private struct StandardStatsPanel: View {
                     colorState: colorState,
                     streamingStartedAt: streamingStartedAt,
                     serverLocation: serverLocation,
-                    qualityRequest: qualityRequest
+                    qualityRequest: qualityRequest,
+                    videoDiagnostics: videoDiagnostics
                 )
                 .frame(width: StatsHUDLayout.columnWidth, alignment: .topLeading)
 
@@ -404,6 +416,7 @@ private struct CoreStatsColumn: View {
     let streamingStartedAt: Date?
     let serverLocation: String
     let qualityRequest: StatsHUDQualityRequest?
+    let videoDiagnostics: VideoPipelineSnapshot?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -452,6 +465,24 @@ private struct CoreStatsColumn: View {
                     value: String(format: "%.2f ms", stats.processingDelayMs)
                 )
                 StatsRow(label: L10n.text("format"), value: videoFormatValue)
+                if let videoDiagnostics {
+                    StatsRow(
+                        label: "Max decoded / enqueue gap",
+                        value: String(
+                            format: "%.1f / %.1f ms",
+                            videoDiagnostics.maxDecodeGapMs,
+                            videoDiagnostics.maxEnqueueGapMs
+                        )
+                    )
+                    StatsRow(
+                        label: "App drops (total)",
+                        value: String(videoDiagnostics.droppedFrames)
+                    )
+                    StatsRow(
+                        label: "AV drops (sample)",
+                        value: String(videoDiagnostics.avDroppedFrames)
+                    )
+                }
             }
             Divider()
                 .overlay(StatsHUDPalette.divider, ignoresSafeAreaEdges: [])

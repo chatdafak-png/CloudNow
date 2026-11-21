@@ -1400,7 +1400,7 @@ struct SettingsView: View {
                     }
                 }
 
-                #if DEBUG
+                #if DEBUG || CLOUDNOW_VIDEO_DIAGNOSTICS
                     CloudNowDiagnosticsSettingsSection(
                         diagnosticsEnabled: $vm.streamSettings.diagnosticsEnabled,
                         enableRtcEventLog: $vm.streamSettings.enableRtcEventLog,
