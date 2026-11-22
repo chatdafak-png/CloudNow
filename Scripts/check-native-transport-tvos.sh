@@ -47,7 +47,7 @@ cmake -S "$sctp_source" -B "$sctp_build" -G Ninja \
     -DCMAKE_OSX_SYSROOT="$sdk" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
     -DCMAKE_C_COMPILER="$compiler" \
-    '-DCMAKE_C_FLAGS=-fapplication-extension -Wno-unused-but-set-variable -Wno-strict-prototypes' \
+    '-DCMAKE_C_FLAGS=-fapplication-extension -D_DARWIN_C_SOURCE -D__APPLE_USE_RFC_3542 -Wno-unused-but-set-variable -Wno-strict-prototypes' \
     -Dsctp_build_programs=OFF \
     -Dsctp_build_shared_lib=OFF \
     -Dsctp_debug=OFF \
