@@ -126,11 +126,6 @@ public struct NvstRtspNegotiator: Sendable {
                                                 input: input,
                                                 steps: &steps)
 
-            if let onVideoReady {
-                try await onVideoReady(resolved.handoff)
-                steps.append("native-receive-armed")
-            }
-
             try await announceStage(connection: connection,
                                     requestURI: requestURI,
                                     common: common,
@@ -138,6 +133,7 @@ public struct NvstRtspNegotiator: Sendable {
                                     resolved: resolved,
                                     reservation: reservation,
                                     input: input,
+                                    onVideoReady: onVideoReady,
                                     steps: &steps)
 
             if let onAnnounceReady {
@@ -237,6 +233,7 @@ extension NvstRtspNegotiator {
                                resolved: ResolvedHandoff,
                                reservation: NvstBundleReservation,
                                input: NvstRtspNegotiationInput,
+                               onVideoReady: VideoReadyHandler?,
                                steps: inout [String]) async throws {
         let audioLayout = NvstOpusMultistreamLayout.negotiated(requestedChannels: input.audioChannelCount,
                                                                offered: described.surroundLayouts,
@@ -254,6 +251,12 @@ extension NvstRtspNegotiator {
         let bundleIdentity = await reserver.bundleIdentity(for: resolved.handoff,
                                                            microphoneOfferedOnBundle: described.microphoneOfferedOnBundle,
                                                            audioLayout: audioLayout)
+        // The tvOS receiver takes ownership of the reserved video socket while preparing
+        // the bundle, so arm it only after the provider has finished.
+        if let onVideoReady {
+            try await onVideoReady(resolved.handoff)
+            steps.append("native-receive-armed")
+        }
         let bundlePort = bundleIdentity?.bundlePort ?? reservation.bundlePort
         let fingerprint = bundleIdentity?.dtlsFingerprint ?? reservation.dtlsFingerprint
         let localAddress = bundleIdentity?.localAddress ?? reservation.localAddress
