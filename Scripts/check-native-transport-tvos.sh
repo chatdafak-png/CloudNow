@@ -18,18 +18,21 @@ sctp_revision=07f871bda23943c43c9e74cc54f25130459de830
 sctp_source="$work_dir/usrsctp"
 sctp_build="$work_dir/sctp-build"
 
+printf '%s\n' 'Building OpenSSL for tvOS'
 curl -fLsS --retry 3 -o "$openssl_archive" \
     "https://github.com/openssl/openssl/releases/download/openssl-$openssl_version/openssl-$openssl_version.tar.gz"
 printf '%s  %s\n' "$openssl_sha" "$openssl_archive" | shasum -a 256 -c -
 tar -xzf "$openssl_archive" -C "$work_dir"
 (
     cd "$openssl_source"
-    CC="$compiler" ./Configure darwin64-arm64-cc \
-        no-shared no-tests no-apps no-module no-engine no-asm no-async \
-        -target "$target" -isysroot "$sdk" -fapplication-extension
+    # Configure parses standalone argument values as additional build targets.
+    CC="$compiler" CFLAGS="-target $target -isysroot $sdk -fapplication-extension" \
+        ./Configure darwin64-arm64-cc \
+        no-shared no-tests no-apps no-module no-engine no-asm no-async
     make -j "$jobs" build_libs
 )
 
+printf '%s\n' 'Building usrsctp for tvOS'
 git clone --quiet --depth 1 --branch 0.9.5.0 https://github.com/sctplab/usrsctp.git "$sctp_source"
 test "$(git -C "$sctp_source" rev-parse HEAD)" = "$sctp_revision"
 cmake -S "$sctp_source" -B "$sctp_build" -G Ninja \
@@ -65,6 +68,7 @@ int main(void) {
 }
 C
 
+printf '%s\n' 'Linking both libraries into a tvOS executable'
 "$compiler" -target "$target" -isysroot "$sdk" -fapplication-extension \
     -I "$openssl_source/include" -I "$sctp_source/usrsctplib" \
     "$work_dir/link-check.c" "$openssl_source/libssl.a" "$openssl_source/libcrypto.a" \
