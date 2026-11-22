@@ -167,7 +167,7 @@ final class VideoSurfaceView: UIView {
             let frame = LKRTCVideoFrame(
                 buffer: LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer), rotation: ._0, timeStampNs: 0
             )
-            frame.timeStamp = Int32(truncatingIfNeeded: CMTimeConvertScale(timestamp, timescale: 90_000, method: .default).value)
+            frame.timeStamp = Int32(truncatingIfNeeded: CMTimeConvertScale(timestamp, timescale: 90000, method: .default).value)
             renderer.renderFrame(frame)
         }
     #endif

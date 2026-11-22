@@ -534,17 +534,17 @@ final class GFNStreamController: NSObject {
             let native = NvstTVSession(onFrame: { [weak self] pixelBuffer, timestamp in
                 let frame = NativeFrame(pixelBuffer: pixelBuffer, timestamp: timestamp)
                 Task { @MainActor [weak self] in
-                    guard let self, self.connectionGeneration == generation, self.nativeSession != nil else { return }
-                    self.videoView?.displayNativeFrame(frame.pixelBuffer, timestamp: frame.timestamp)
-                    if self.state == .connecting {
-                        self.streamingStartedAt = Date()
-                        self.state = .streaming
+                    guard let self, connectionGeneration == generation, nativeSession != nil else { return }
+                    videoView?.displayNativeFrame(frame.pixelBuffer, timestamp: frame.timestamp)
+                    if state == .connecting {
+                        streamingStartedAt = Date()
+                        state = .streaming
                     }
                 }
             }, onFailure: { [weak self] message in
-                guard let self, self.connectionGeneration == generation else { return }
-                self.nativeSession = nil
-                self.state = .failed(message: message)
+                guard let self, connectionGeneration == generation else { return }
+                nativeSession = nil
+                state = .failed(message: message)
             })
             nativeSession = native
             do {
