@@ -11,7 +11,13 @@ private nonisolated let cloudMatchOSLog = OSLog(subsystem: "com.owenselles.Cloud
 // MARK: - CloudMatch Headers
 
 /// Shared GFN request headers, also used by `ServerInfoClient` for `/v2/serverInfo`.
-nonisolated func gfnHeaders(token: String, clientId: String, deviceId: String, includeOrigin: Bool = true) -> [String: String] {
+nonisolated func gfnHeaders(
+    token: String,
+    clientId: String,
+    deviceId: String,
+    includeOrigin: Bool = true,
+    clientStreamer: String = "WEBRTC"
+) -> [String: String] {
     var h: [String: String] = [
         "User-Agent": NVIDIAAuth.userAgent,
         "Authorization": "GFNJWT \(token)",
@@ -19,9 +25,7 @@ nonisolated func gfnHeaders(token: String, clientId: String, deviceId: String, i
         "Content-Type": "application/json",
         "nv-browser-type": "CHROME",
         "nv-client-id": clientId,
-        // Select WebRTC transport while preserving the native client identity used
-        // by session payloads and membership capability requests.
-        "nv-client-streamer": "WEBRTC",
+        "nv-client-streamer": clientStreamer,
         "nv-client-type": "NATIVE",
         "nv-client-version": NVIDIAAuth.gfnClientVersion,
         "nv-device-make": "UNKNOWN",
@@ -36,6 +40,12 @@ nonisolated func gfnHeaders(token: String, clientId: String, deviceId: String, i
     }
     return h
 }
+
+#if CLOUDNOW_NATIVE_TRANSPORT
+    private nonisolated let sessionClientStreamer = "NVIDIA-CLASSIC"
+#else
+    private nonisolated let sessionClientStreamer = "WEBRTC"
+#endif
 
 // MARK: - CloudMatch Response Types
 
@@ -621,7 +631,14 @@ actor CloudMatchClient {
         let effectiveBase = serverIp.map { "https://\($0)" } ?? base
         let url = URL(string: "\(effectiveBase)/v2/session/\(sessionId)")!
         var request = URLRequest(url: url)
-        for (k, v) in gfnHeaders(token: token, clientId: clientId, deviceId: deviceId, includeOrigin: false) {
+        let headers = gfnHeaders(
+            token: token,
+            clientId: clientId,
+            deviceId: deviceId,
+            includeOrigin: false,
+            clientStreamer: sessionClientStreamer
+        )
+        for (k, v) in headers {
             request.setValue(v, forHTTPHeaderField: k)
         }
         let (data, response) = try await transport.data(for: request)
@@ -841,10 +858,14 @@ actor CloudMatchClient {
         ]
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
-        #if CLOUDNOW_NATIVE_TRANSPORT
-            request.setValue("NVIDIA-CLASSIC", forHTTPHeaderField: "nv-client-streamer")
-        #endif
-        for (k, v) in gfnHeaders(token: token, clientId: clientId, deviceId: deviceId, includeOrigin: true) {
+        let headers = gfnHeaders(
+            token: token,
+            clientId: clientId,
+            deviceId: deviceId,
+            includeOrigin: true,
+            clientStreamer: sessionClientStreamer
+        )
+        for (k, v) in headers {
             request.setValue(v, forHTTPHeaderField: k)
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
