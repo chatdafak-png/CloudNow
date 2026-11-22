@@ -1,0 +1,21 @@
+name: CloudNow Native Transport Check
+
+on:
+  push:
+    branches: [native-transport]
+
+permissions:
+  contents: read
+
+jobs:
+  tvos-link:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+      - name: Build and link native transport dependencies for Apple TV
+        run: bash Scripts/check-native-transport-tvos.sh
