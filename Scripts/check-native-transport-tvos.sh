@@ -35,7 +35,9 @@ tar -xzf "$openssl_archive" -C "$work_dir"
 printf '%s\n' 'Building usrsctp for tvOS'
 git clone --quiet --depth 1 --branch 0.9.5.0 https://github.com/sctplab/usrsctp.git "$sctp_source"
 test "$(git -C "$sctp_source" rev-parse HEAD)" = "$sctp_revision"
+# usrsctp 0.9.5.0 declares a policy version older than CMake 4 supports.
 cmake -S "$sctp_source" -B "$sctp_build" -G Ninja \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SYSTEM_NAME=tvOS \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
