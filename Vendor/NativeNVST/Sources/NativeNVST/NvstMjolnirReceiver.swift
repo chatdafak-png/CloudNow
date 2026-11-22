@@ -161,7 +161,10 @@ public final class NvstMjolnirReceiver: @unchecked Sendable {
         let source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         source.setEventHandler { [weak self] in self?.drainSocket() }
         source.setCancelHandler { [weak self] in
-            guard let self else { return }
+            guard let self else {
+                close(descriptor)
+                return
+            }
             // The close shares the send lock: a send in flight on another thread could otherwise
             // `sendto` a descriptor number the kernel has already reissued to something else.
             sendLock.lock()

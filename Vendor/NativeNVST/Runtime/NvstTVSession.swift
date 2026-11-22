@@ -102,7 +102,7 @@ public final class NvstTVSession {
             self.video = video
             self.bundle = bundle
             return NvstBundleReservation(
-                bundlePort: bundle.port, mjolnirPort: handoff.clientUDPPort,
+                bundlePort: bundle.port, mjolnirPort: handoff.mjolnirUDPPort ?? handoff.clientUDPPort,
                 localAddress: bundle.localAddress, dtlsFingerprint: identity.fingerprint
             )
         } catch {
@@ -140,6 +140,7 @@ public final class NvstTVSession {
 private final class NvstTVVideo: @unchecked Sendable {
     private let receiver: NvstMjolnirReceiver
     private let decoder: NvstVideoToolboxDecoder
+    private var unstartedDescriptor: Int32
     private let decodeQueue = DispatchQueue(label: "com.owenselles.CloudNow.nvst-video", qos: .userInteractive)
     private let state = OSAllocatedUnfairLock(initialState: State())
 
@@ -157,6 +158,7 @@ private final class NvstTVVideo: @unchecked Sendable {
             throw error
         }
         decoder = NvstVideoToolboxDecoder(codec: handoff.codec)
+        unstartedDescriptor = descriptor
         decoder.onPixelBuffer = { [weak self] pixels, timestamp, _ in
             guard self?.state.withLock({ !$0.stopped }) == true else { return }
             onFrame(pixels, timestamp)
@@ -166,7 +168,15 @@ private final class NvstTVVideo: @unchecked Sendable {
 
     var framesReceived: UInt64 { receiver.stats.framesEmitted }
 
-    func start() throws { try receiver.start() }
+    deinit {
+        if unstartedDescriptor >= 0 { Darwin.close(unstartedDescriptor) }
+    }
+
+    func start() throws {
+        try receiver.start()
+        unstartedDescriptor = -1
+    }
+
     func beginHolePunch() { receiver.beginHolePunch() }
 
     func stop() {
