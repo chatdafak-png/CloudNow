@@ -14,7 +14,8 @@ openssl_version=3.5.8
 openssl_sha=a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2
 openssl_archive="$work_dir/openssl.tar.gz"
 openssl_source="$work_dir/openssl-$openssl_version"
-sctp_revision=07f871bda23943c43c9e74cc54f25130459de830
+# Upstream support for Apple SDKs that do not ship <net/route.h>.
+sctp_revision=e984d7f3c1b13d0b0582497b385c93f0e8d89fb3
 sctp_source="$work_dir/usrsctp"
 sctp_build="$work_dir/sctp-build"
 
@@ -33,9 +34,11 @@ tar -xzf "$openssl_archive" -C "$work_dir"
 )
 
 printf '%s\n' 'Building usrsctp for tvOS'
-git clone --quiet --depth 1 --branch 0.9.5.0 https://github.com/sctplab/usrsctp.git "$sctp_source"
+git init --quiet "$sctp_source"
+git -C "$sctp_source" fetch --quiet --depth 1 https://github.com/sctplab/usrsctp.git "$sctp_revision"
+git -C "$sctp_source" checkout --quiet --detach FETCH_HEAD
 test "$(git -C "$sctp_source" rev-parse HEAD)" = "$sctp_revision"
-# usrsctp 0.9.5.0 declares a policy version older than CMake 4 supports.
+# usrsctp declares a policy version older than CMake 4 supports.
 cmake -S "$sctp_source" -B "$sctp_build" -G Ninja \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_BUILD_TYPE=Release \
