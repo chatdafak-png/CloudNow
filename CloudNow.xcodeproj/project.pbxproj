@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		5A6F3F582F8A5EB600C9DB31 /* LiveKitWebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 5A6F3F572F8A5EB600C9DB31 /* LiveKitWebRTC */; };
+		C20000000000000000000001 /* NativeNVST in Frameworks */ = {isa = PBXBuildFile; productRef = C20000000000000000000002 /* NativeNVST */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +54,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5A6F3F582F8A5EB600C9DB31 /* LiveKitWebRTC in Frameworks */,
+				C20000000000000000000001 /* NativeNVST in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +133,7 @@
 			name = CloudNow;
 			packageProductDependencies = (
 				5A6F3F572F8A5EB600C9DB31 /* LiveKitWebRTC */,
+				C20000000000000000000002 /* NativeNVST */,
 			);
 			productName = CloudNow;
 			productReference = 5A6F3F312F8A5B1C00C9DB31 /* CloudNow.app */;
@@ -216,6 +219,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5A6F3F562F8A5EB600C9DB31 /* XCRemoteSwiftPackageReference "webrtc-xcframework" */,
+				C20000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/NativeNVST" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5A6F3F322F8A5B1C00C9DB31 /* Products */;
@@ -629,6 +633,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		C20000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/NativeNVST" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/NativeNVST;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		5A6F3F562F8A5EB600C9DB31 /* XCRemoteSwiftPackageReference "webrtc-xcframework" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -641,6 +652,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C20000000000000000000002 /* NativeNVST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C20000000000000000000003 /* XCLocalSwiftPackageReference "Vendor/NativeNVST" */;
+			productName = NativeNVST;
+		};
 		5A6F3F572F8A5EB600C9DB31 /* LiveKitWebRTC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5A6F3F562F8A5EB600C9DB31 /* XCRemoteSwiftPackageReference "webrtc-xcframework" */;

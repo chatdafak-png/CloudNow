@@ -10,6 +10,10 @@ deployment_target=26.2
 target="arm64-apple-tvos$deployment_target"
 jobs=$(sysctl -n hw.ncpu)
 
+printf '%s\n' 'Checking the native RTSP control module for tvOS'
+xcrun --sdk appletvos swiftc -target "$target" -sdk "$sdk" -swift-version 5 -typecheck \
+    Vendor/NativeNVST/Sources/NativeNVST/*.swift
+
 openssl_version=3.5.8
 openssl_sha=a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2
 openssl_archive="$work_dir/openssl.tar.gz"

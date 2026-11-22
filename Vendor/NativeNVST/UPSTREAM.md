@@ -1,0 +1,1 @@
+The native RTSP control path and its supporting types come from [OpenNOW-Mac](https://github.com/OpenCloudGaming/OpenNOW-Mac/tree/dcd8288efbb9e18e824c8dab266fe5dbb9ad68a0/GFN/NVST), under the accompanying MIT license.

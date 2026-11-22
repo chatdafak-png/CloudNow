@@ -1,5 +1,6 @@
 import CoreFoundation
 import Foundation
+import NativeNVST
 import os.log
 
 private nonisolated let cloudMatchLog = Logger(subsystem: "com.owenselles.CloudNow2", category: "CloudMatch")
@@ -85,6 +86,7 @@ private nonisolated struct CloudMatchResponse: Decodable {
 
         struct ConnectionInfo: Decodable {
             let usage: Int
+            let appLevelProtocol: Int?
             let ip: AnyCodableString?
             let port: Int
             let resourcePath: String?
@@ -923,6 +925,20 @@ actor CloudMatchClient {
 
         // Ad state — parse raw JSON for flexibility since ad schema varies
         let adState = extractAdState(from: rawData)
+        let nativeConnections: [[String: Any]] = connections.map { connection in
+            [
+                "usage": connection.usage,
+                "appLevelProtocol": connection.appLevelProtocol ?? 0,
+                "port": connection.port,
+                "ip": serverHost(from: connection) ?? "",
+                "resourcePath": connection.resourcePath ?? "",
+            ]
+        }
+        let nativeControlEndpoints = NvstRtspEndpoints.collect(
+            connections: nativeConnections,
+            fallbackHost: serverIp.isEmpty ? nil : serverIp,
+            allowsAssumedControlPort: false
+        )
 
         return SessionInfo(
             sessionId: s.sessionId,
@@ -942,7 +958,8 @@ actor CloudMatchClient {
             deviceId: deviceId,
             adState: adState,
             controlServerIp: normalizedControlServerIp(s.sessionControlInfo?.ip?.value),
-            acceptedSdrHdrMode: lastAcceptedSdrHdrMode
+            acceptedSdrHdrMode: lastAcceptedSdrHdrMode,
+            nativeControlEndpoints: nativeControlEndpoints
         )
     }
 

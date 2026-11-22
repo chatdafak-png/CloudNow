@@ -808,6 +808,8 @@ nonisolated struct SessionInfo {
     var controlServerIp: String?
     /// Server-accepted dynamic range, preserved when attaching to an existing allocation.
     var acceptedSdrHdrMode: Int?
+    /// Control endpoints explicitly advertised by the allocation for the native transport.
+    var nativeControlEndpoints: [String] = []
 
     /// True while the session is sitting in the GFN queue (no timeout applies).
     var isInQueue: Bool {
