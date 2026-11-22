@@ -4,11 +4,10 @@ import Foundation
 import PackageDescription
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let hasNativeRuntime = FileManager.default.fileExists(atPath: packageDirectory.appendingPathComponent("Binaries/OpenSSL.xcframework/Info.plist").path)
-    && FileManager.default.fileExists(atPath: packageDirectory.appendingPathComponent("Binaries/usrsctp.xcframework/Info.plist").path)
+let nativeLibraries = "Binaries/NativeTransportLibraries.xcframework"
+let hasNativeRuntime = FileManager.default.fileExists(atPath: packageDirectory.appendingPathComponent(nativeLibraries + "/Info.plist").path)
 let nativeTargets: [Target] = hasNativeRuntime ? [
-    .binaryTarget(name: "OpenSSL", path: "Binaries/OpenSSL.xcframework"),
-    .binaryTarget(name: "usrsctp", path: "Binaries/usrsctp.xcframework"),
+    .binaryTarget(name: "NativeTransportLibraries", path: nativeLibraries),
 ] : []
 
 let package = Package(
@@ -18,7 +17,7 @@ let package = Package(
     targets: [
         .target(
             name: "NativeNVST",
-            dependencies: hasNativeRuntime ? ["OpenSSL", "usrsctp"] : [],
+            dependencies: hasNativeRuntime ? ["NativeTransportLibraries"] : [],
             path: ".",
             exclude: hasNativeRuntime ? ["LICENSE", "UPSTREAM.md", "Binaries"] : ["LICENSE", "UPSTREAM.md", "Runtime"],
             sources: hasNativeRuntime ? ["Sources/NativeNVST", "Runtime"] : ["Sources/NativeNVST"]
