@@ -84,3 +84,46 @@ printf '%s\n' 'Linking both libraries into a tvOS executable'
     "$sctp_build/usrsctplib/libusrsctp.a" -o "$work_dir/link-check"
 xcrun vtool -show-build "$work_dir/link-check" | tee "$work_dir/platform.txt"
 grep -E 'platform[[:space:]]+TVOS([[:space:]]|$)' "$work_dir/platform.txt"
+
+# Use the same C headers and libraries when compiling the Swift DTLS/SCTP transport.
+mkdir "$work_dir/clang-modules"
+cat > "$work_dir/clang-modules/module.modulemap" <<'MODULEMAP'
+module OpenSSL [system] {
+    header "OpenSSL.h"
+    export *
+}
+module usrsctp [system] {
+    header "SCTP.h"
+    export *
+}
+MODULEMAP
+cat > "$work_dir/clang-modules/OpenSSL.h" <<'HEADER'
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rand.h>
+#include <openssl/x509.h>
+#include <openssl/srtp.h>
+HEADER
+cat > "$work_dir/clang-modules/SCTP.h" <<'HEADER'
+#include <usrsctp.h>
+HEADER
+cat > "$work_dir/main.swift" <<'SWIFT'
+let identity = try NvstDtlsIdentity(commonName: "CloudNow")
+withExtendedLifetime(identity) {
+    let association = try? NvstSctpAssociation(onOutboundPacket: { _ in })
+    association?.close()
+}
+SWIFT
+
+printf '%s\n' 'Compiling and linking the Swift DTLS/SCTP transport for tvOS'
+xcrun --sdk appletvos swiftc -target "$target" -sdk "$sdk" -swift-version 5 \
+    -I "$work_dir/clang-modules" \
+    -Xcc "-I$openssl_source/include" -Xcc "-I$sctp_source/usrsctplib" \
+    Vendor/NativeNVST/Sources/NativeNVST/*.swift Vendor/NativeNVST/Runtime/*.swift \
+    "$work_dir/main.swift" "$openssl_source/libssl.a" "$openssl_source/libcrypto.a" \
+    "$sctp_build/usrsctplib/libusrsctp.a" -o "$work_dir/swift-link-check"
+xcrun vtool -show-build "$work_dir/swift-link-check" | tee "$work_dir/swift-platform.txt"
+grep -E 'platform[[:space:]]+TVOS([[:space:]]|$)' "$work_dir/swift-platform.txt"
