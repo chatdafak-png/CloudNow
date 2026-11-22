@@ -162,6 +162,15 @@ final class VideoSurfaceView: UIView {
 
     private let pipelineDiagnostics = VideoPipelineDiagnostics()
     private lazy var renderer = WebRTCFrameRenderer(diagnostics: pipelineDiagnostics)
+    #if CLOUDNOW_NATIVE_TRANSPORT
+        func displayNativeFrame(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
+            let frame = LKRTCVideoFrame(
+                buffer: LKRTCCVPixelBuffer(pixelBuffer: pixelBuffer), rotation: ._0, timeStampNs: 0
+            )
+            frame.timeStamp = Int32(truncatingIfNeeded: CMTimeConvertScale(timestamp, timescale: 90_000, method: .default).value)
+            renderer.renderFrame(frame)
+        }
+    #endif
     private var currentTrack: LKRTCVideoTrack?
     private var notificationTokens: [NSObjectProtocol] = []
     private var activeRemoteTouch: UITouch?

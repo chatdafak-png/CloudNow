@@ -127,3 +127,20 @@ xcrun --sdk appletvos swiftc -target "$target" -sdk "$sdk" -swift-version 5 \
     "$sctp_build/usrsctplib/libusrsctp.a" -o "$work_dir/swift-link-check"
 xcrun vtool -show-build "$work_dir/swift-link-check" | tee "$work_dir/swift-platform.txt"
 grep -E 'platform[[:space:]]+TVOS([[:space:]]|$)' "$work_dir/swift-platform.txt"
+
+if [[ "${1:-}" == --prepare-app ]]; then
+    output="$PWD/Vendor/NativeNVST/Binaries"
+    mkdir -p "$output" "$work_dir/openssl-headers" "$work_dir/sctp-headers"
+    cp "$openssl_source/LICENSE.txt" "$output/OpenSSL-LICENSE.txt"
+    cp "$sctp_source/LICENSE.md" "$output/usrsctp-LICENSE.md"
+    cp -R "$openssl_source/include/openssl" "$work_dir/openssl-headers/"
+    cp "$work_dir/clang-modules/OpenSSL.h" "$work_dir/openssl-headers/"
+    cp "$sctp_source/usrsctplib/usrsctp.h" "$work_dir/sctp-headers/"
+    printf '%s\n' 'module OpenSSL [system] { header "OpenSSL.h" export * }' > "$work_dir/openssl-headers/module.modulemap"
+    printf '%s\n' 'module usrsctp [system] { header "usrsctp.h" export * }' > "$work_dir/sctp-headers/module.modulemap"
+    xcrun libtool -static -o "$work_dir/libOpenSSL.a" "$openssl_source/libssl.a" "$openssl_source/libcrypto.a"
+    xcodebuild -create-xcframework -library "$work_dir/libOpenSSL.a" -headers "$work_dir/openssl-headers" \
+        -output "$output/OpenSSL.xcframework"
+    xcodebuild -create-xcframework -library "$sctp_build/usrsctplib/libusrsctp.a" -headers "$work_dir/sctp-headers" \
+        -output "$output/usrsctp.xcframework"
+fi

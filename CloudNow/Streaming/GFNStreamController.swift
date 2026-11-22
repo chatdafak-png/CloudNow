@@ -6,6 +6,7 @@
 import AVFoundation
 import Foundation
 @preconcurrency import LiveKitWebRTC
+import NativeNVST
 import Observation
 import os
 
@@ -304,6 +305,14 @@ private nonisolated struct PeerCallbackState {
 @Observable
 @MainActor
 final class GFNStreamController: NSObject {
+    #if CLOUDNOW_NATIVE_TRANSPORT
+        private var nativeSession: NvstTVSession?
+
+        private nonisolated struct NativeFrame: @unchecked Sendable {
+            let pixelBuffer: CVPixelBuffer
+            let timestamp: CMTime
+        }
+    #endif
     private(set) var state: StreamState = .idle
     private(set) var stats = StreamStats()
     private(set) var audioStats = AudioStats()
@@ -473,37 +482,85 @@ final class GFNStreamController: NSObject {
             }
         }
 
-        let microphoneAuthorized = await requestMicrophonePermissionIfNeeded()
-        guard connectionGeneration == generation,
-              sessionInfo?.sessionId == session.sessionId,
-              case .connecting = state
-        else { return }
-        microphoneAuthorizedForConnection = microphoneAuthorized
+        #if CLOUDNOW_NATIVE_TRANSPORT
+            await connectNative(session: session, settings: settings, generation: generation)
+        #else
+            let microphoneAuthorized = await requestMicrophonePermissionIfNeeded()
+            guard connectionGeneration == generation,
+                  sessionInfo?.sessionId == session.sessionId,
+                  case .connecting = state
+            else { return }
+            microphoneAuthorizedForConnection = microphoneAuthorized
 
-        let signalingClient = setupSignaling(session: session)
-        do {
-            gfnLog.info("connect: opening signaling WebSocket")
-            try await signalingClient.connect()
-            guard connectionGeneration == generation,
-                  signaling === signalingClient,
-                  case .connecting = state
-            else {
-                signalingClient.disconnect()
-                return
+            let signalingClient = setupSignaling(session: session)
+            do {
+                gfnLog.info("connect: opening signaling WebSocket")
+                try await signalingClient.connect()
+                guard connectionGeneration == generation,
+                      signaling === signalingClient,
+                      case .connecting = state
+                else {
+                    signalingClient.disconnect()
+                    return
+                }
+                gfnLog.info("connect: signaling connected")
+            } catch {
+                guard connectionGeneration == generation,
+                      signaling === signalingClient,
+                      case .connecting = state
+                else {
+                    signalingClient.disconnect()
+                    return
+                }
+                gfnLog.error("connect: signaling FAILED: \(error)")
+                state = .failed(message: error.localizedDescription)
             }
-            gfnLog.info("connect: signaling connected")
-        } catch {
-            guard connectionGeneration == generation,
-                  signaling === signalingClient,
-                  case .connecting = state
-            else {
-                signalingClient.disconnect()
-                return
-            }
-            gfnLog.error("connect: signaling FAILED: \(error)")
-            state = .failed(message: error.localizedDescription)
-        }
+        #endif
     }
+
+    #if CLOUDNOW_NATIVE_TRANSPORT
+        private func connectNative(session: SessionInfo, settings: StreamSettings, generation: UInt64) async {
+            guard !session.nativeControlEndpoints.isEmpty else {
+                state = .failed(message: "GeForce NOW did not advertise a native endpoint for this session.")
+                return
+            }
+            let dimensions = settings.resolution.split(separator: "x").compactMap { Int($0) }
+            guard dimensions.count == 2 else {
+                state = .failed(message: "Invalid native video resolution.")
+                return
+            }
+            _ = configureAudioSession(microphoneRequested: false)
+            nativeSession?.stop()
+            let native = NvstTVSession(onFrame: { [weak self] pixelBuffer, timestamp in
+                let frame = NativeFrame(pixelBuffer: pixelBuffer, timestamp: timestamp)
+                Task { @MainActor [weak self] in
+                    guard let self, self.connectionGeneration == generation, self.nativeSession != nil else { return }
+                    self.videoView?.displayNativeFrame(frame.pixelBuffer, timestamp: frame.timestamp)
+                    if self.state == .connecting {
+                        self.streamingStartedAt = Date()
+                        self.state = .streaming
+                    }
+                }
+            }, onFailure: { [weak self] message in
+                guard let self, self.connectionGeneration == generation else { return }
+                self.nativeSession = nil
+                self.state = .failed(message: message)
+            })
+            nativeSession = native
+            do {
+                try await native.start(
+                    sessionID: session.sessionId, endpoints: session.nativeControlEndpoints,
+                    width: dimensions[0], height: dimensions[1], framesPerSecond: settings.fps,
+                    codec: settings.codec.resolvedCodec.rawValue, bitrateKbps: settings.maxBitrateKbps
+                )
+            } catch {
+                guard connectionGeneration == generation, nativeSession === native else { return }
+                native.stop()
+                nativeSession = nil
+                state = .failed(message: error.localizedDescription)
+            }
+        }
+    #endif
 
     // MARK: Video View Binding
 
@@ -746,6 +803,10 @@ final class GFNStreamController: NSObject {
     // MARK: Disconnect
 
     func disconnect() {
+        #if CLOUDNOW_NATIVE_TRANSPORT
+            nativeSession?.stop()
+            nativeSession = nil
+        #endif
         reconnectTask?.cancel()
         reconnectTask = nil
         connectionGeneration &+= 1

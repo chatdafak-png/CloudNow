@@ -841,6 +841,9 @@ actor CloudMatchClient {
         ]
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        #if CLOUDNOW_NATIVE_TRANSPORT
+            request.setValue("NVIDIA-CLASSIC", forHTTPHeaderField: "nv-client-streamer")
+        #endif
         for (k, v) in gfnHeaders(token: token, clientId: clientId, deviceId: deviceId, includeOrigin: true) {
             request.setValue(v, forHTTPHeaderField: k)
         }
